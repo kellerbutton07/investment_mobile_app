@@ -78,7 +78,10 @@ else:
 
 connection = psycopg2.connect(host=host, port="5432", user="neondb_owner", password=password, database="neondb", sslmode="require")
 
-# Dictionary mapping common business company names directly onto core stock ticker tickers
+# Setup application state tracker to store active timeframe selections
+if "active_tf" not in st.session_state:
+    st.session_state.active_tf = "1M"  # Default to 1 Month layout
+
 company_ticker_map = {
     "TESLA": "TSLA", "ELON MUSK": "TSLA", "NVIDIA": "NVDA", "JENSEN HUANG": "NVDA",
     "APPLE": "AAPL", "IPHONE": "AAPL", "AMAZON": "AMZN", "JEFF BEZOS": "AMZN",
@@ -87,7 +90,6 @@ company_ticker_map = {
     "GOOGLE": "GOOGL", "ALPHABET": "GOOGL"
 }
 
-# Fetch unique whale tracking lists
 cursor = connection.cursor()
 try:
     cursor.execute("SELECT name FROM trader_registry ORDER BY annual_return DESC;")
@@ -96,11 +98,11 @@ except Exception:
     whale_names_list = ["Nancy Pelosi", "Warren Buffett", "Michael Burry", "Bill Ackman", "Stanley Druckenmiller"]
 cursor.close()
 
-# 📱 FIVE SECTOR RESPONSIVE SEGMENT TOUCH NAVIGATION TABS INTERFACE
+# 📱 FIVE SECTOR RESPONSIVE SEGMENT NAVIGATION TABS
 tab_explore, tab_signals, tab_whales, tab_news, tab_help = st.tabs([
     "🔍 EXPLORE",
     "📈 SIGNALS",
-    "🐋 INVESTORS",  # Dedicated selection page
+    "🐋 INVESTORS",
     "📰 READ",
     "❓ HELP"
 ])
@@ -108,12 +110,10 @@ tab_explore, tab_signals, tab_whales, tab_news, tab_help = st.tabs([
 # ----------------- CHANNELS DISPLAY -----------------
 
 with tab_explore:
-    st.markdown('<div class="quiver-container"><h1>🔍 Market Discovery Explorer</h1><p style="color: #8a99ad; margin:0;">Search global financial registries by typing either Ticker Symbols or Company Names</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="quiver-container"><h1>🔍 Market Discovery Explorer</h1><p style="color: #8a99ad; margin:0;">Search by Ticker or Name. Filter timeframes with dynamic color signals.</p></div>', unsafe_allow_html=True)
 
-    # ADVANCED SEARCH CONSOLE INPUT
-    search_input = st.text_input("ENTER TICKER OR COMPANY IDENTITY (e.g., TSLA, Apple, Nvidia, Costco, Google):", value="TSLA", key="univ_search_input").upper().strip()
+    search_input = st.text_input("ENTER TICKER OR COMPANY IDENTITY:", value="TSLA", key="univ_search_input").upper().strip()
 
-    # Intelligence mapper routing translation logic
     target_ticker = search_input
     for key, value in company_ticker_map.items():
         if key in search_input:
@@ -123,25 +123,64 @@ with tab_explore:
     if target_ticker:
         try:
             ticker_obj = yf.Ticker(target_ticker)
-            ticker_history = ticker_obj.history(period="1mo", interval="1d")
             ticker_info = ticker_obj.info
+
+            # 🆕 TIMEFRAME INTERVAL SELECTOR ROW SELECTION SEGMENT
+            st.markdown("##### ⏱️ Chart Timeframe Horizon")
+            tf_col1, tf_col2, tf_col3, tf_col4, tf_col5 = st.columns(5)
+
+            # Map labels to official Yahoo history constraints (period, interval)
+            tf_config = {"1D": ("1d", "5m"), "1W": ("5d", "30m"), "1M": ("1mo", "1d"), "1Y": ("1y", "1d"), "MAX": ("max", "1wk")}
+
+            with tf_col1:
+                if st.button("1 DAY", use_container_width=True, type="primary" if st.session_state.active_tf == "1D" else "secondary"):
+                    st.session_state.active_tf = "1D"
+                    st.rerun()
+            with tf_col2:
+                if st.button("1 WEEK", use_container_width=True, type="primary" if st.session_state.active_tf == "1W" else "secondary"):
+                    st.session_state.active_tf = "1W"
+                    st.rerun()
+            with tf_col3:
+                if st.button("1 MONTH", use_container_width=True, type="primary" if st.session_state.active_tf == "1M" else "secondary"):
+                    st.session_state.active_tf = "1M"
+                    st.rerun()
+            with tf_col4:
+                if st.button("1 YEAR", use_container_width=True, type="primary" if st.session_state.active_tf == "1Y" else "secondary"):
+                    st.session_state.active_tf = "1Y"
+                    st.rerun()
+            with tf_col5:
+                if st.button("LIFETIME", use_container_width=True, type="primary" if st.session_state.active_tf == "MAX" else "secondary"):
+                    st.session_state.active_tf = "MAX"
+                    st.rerun()
+
+            # Execute live data aggregation using the active timeframe parameters
+            chosen_p, chosen_i = tf_config[st.session_state.active_tf]
+            ticker_history = ticker_obj.history(period=chosen_p, interval=chosen_i)
 
             if not ticker_history.empty:
                 comp_name = ticker_info.get("longName", f"{target_ticker} Equity Profile")
                 price_now = ticker_history["Close"].iloc[-1]
+
+                # --- CALCULATE PERFORMANCE OVER CHOSEN HORIZON ---
                 price_start = ticker_history["Close"].iloc[0]
                 net_change_pct = ((price_now - price_start) / price_start) * 100
+
+                # Dynamic Diagram Color Settings (Green = Gain | Red = Loss)
                 chart_color = "#10b981" if price_now >= price_start else "#ef4444"
+                status_signal = "🟢 GAIN" if price_now >= price_start else "🔴 LOSS"
 
-                col_m1, col_m2 = st.columns(2)
+                col_m1, col_m2, col_m3 = st.columns(3)
                 with col_m1:
-                    st.metric("Company Asset Verified", comp_name)
+                    st.metric("Company Asset", comp_name)
                 with col_m2:
-                    st.metric(f"Ticker: ${target_ticker} (30-Day Trend)", f"${price_now:.2f}", f"{net_change_pct:+.2f}%")
+                    st.metric("Live Market Value", f"${price_now:.2f}", f"{net_change_pct:+.2f}%")
+                with col_m3:
+                    st.metric(f"{st.session_state.active_tf} Interval Status", status_signal)
 
+                st.markdown(f"### 📈 {target_ticker} Price Chart Diagram ({st.session_state.active_tf} Window)")
                 st.line_chart(pd.DataFrame({"Price ($)": ticker_history["Close"]}), color=chart_color)
             else:
-                st.warning("Unable to match record for input string. Verify capitalization syntax rules.")
+                st.error("Data tracking indices empty for this specific asset period allocation.")
         except Exception:
             st.error("Market data feeds down or processing throttle active.")
 
@@ -156,7 +195,6 @@ with tab_signals:
 with tab_whales:
     st.markdown('<div class="quiver-container"><h1>🐋 Whale Ledger Auditor Portal</h1><p style="color: #8a99ad; margin:0;">One-click list selection interface displaying historical execution sheets</p></div>', unsafe_allow_html=True)
 
-    # Structured clean selector row list
     selected_whale_profile = st.selectbox(
         "🗂️ SELECT ANY REGISTERED TRADER PROFILE TO GENERATE LIVE BALANCE LEDGER SHEET:",
         whale_names_list,
@@ -191,7 +229,6 @@ with tab_whales:
             df_target_history = pd.read_sql_query(query_history, connection, params=(selected_whale_profile,))
 
             if not df_target_history.empty:
-                # Append green and red visibility markers inside clean ledger text grids
                 df_target_history["Action Type"] = df_target_history["Action Type"].apply(
                     lambda x: f"🟢 {x}" if "Buy" in x or "Purchase" in x else f"🔴 {x}"
                 )

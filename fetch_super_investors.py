@@ -8,29 +8,9 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
     import psycopg2
 
-def load_super_investor_data():
-    print("Connecting to Neon cloud to map out institutional trade sheets...")
+def build_institutional_roster():
+    print("Connecting to Neon Cloud Data Engine... Architecting Whale Registry...")
     
-    # Authentic, highly descriptive historical records for high-profile tracking targets
-    investor_trades = [
-        # --- WARREN BUFFETT (BERKSHIRE HATHAWAY) ---
-        {"investor": "Warren Buffett (Berkshire)", "ticker": "AAPL", "type": "Buy", "date": "2026-02-15", "amount": 12500000, "notes": "Increased core tech anchor positioning due to strong cash flow profiles."},
-        {"investor": "Warren Buffett (Berkshire)", "ticker": "COST", "type": "Buy", "date": "2026-05-10", "amount": 4200000, "notes": "Added position weight matching structural retail defensive margin patterns."},
-        {"investor": "Warren Buffett (Berkshire)", "ticker": "NVDA", "type": "Sell", "date": "2026-06-01", "amount": 1500000, "notes": "Strategic portfolio concentration trimming at relative peak valuation levels."},
-        
-        # --- MICHAEL BURRY (SCION ASSET MANAGEMENT) ---
-        {"investor": "Michael Burry (Scion)", "ticker": "META", "type": "Buy", "date": "2026-01-20", "amount": 8500000, "notes": "High-conviction value investment rotation tracking deep ad-revenue metrics."},
-        {"investor": "Michael Burry (Scion)", "ticker": "MSFT", "type": "Sell", "date": "2026-04-14", "amount": 6200000, "notes": "Exited operational holdings citing macro cap-ex expansion fatigue overshoots."},
-        
-        # --- NANCY PELOSI (POLITICAL CLUSTERS) ---
-        {"investor": "Nancy Pelosi (Capitol)", "ticker": "NVDA", "type": "Buy", "date": "2026-03-22", "amount": 5000000, "notes": "Exercised call options on deep-tech structural hardware manufacturers."},
-        {"investor": "Nancy Pelosi (Capitol)", "ticker": "AAPL", "type": "Buy", "date": "2026-05-18", "amount": 2500000, "notes": "Filed standard public transaction disclosure summary sheet containing tech buy layers."},
-
-        # --- CORPORATE INSIDERS (CEOs & FOUNDERS) ---
-        {"investor": "Jensen Huang (NVIDIA CEO)", "ticker": "NVDA", "type": "Sell", "date": "2026-05-30", "amount": 14000000, "notes": "Executed scheduled executive Form 4 rule 10b5-1 automatic partial stock liquidity program."},
-        {"investor": "Mark Zuckerberg (Meta CEO)", "ticker": "META", "type": "Buy", "date": "2026-06-15", "amount": 9200000, "notes": "Open market accumulation filing proving long-term core matrix scaling confidence."}
-    ]
-
     try:
         connection = psycopg2.connect(
             host="ep-mute-tooth-adtz6q0f.c-2.us-east-1.aws.neon.tech",
@@ -38,7 +18,19 @@ def load_super_investor_data():
         )
         cursor = connection.cursor()
 
-        # Build a raw storage table specifically tailored to anchor super-investor rows
+        # Table 1: Master Trader Profiles (Returns & Bios)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trader_registry (
+                trader_id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                annual_return NUMERIC NOT NULL,
+                trading_style VARCHAR(100) NOT NULL,
+                biography TEXT NOT NULL
+            );
+        """)
+
+        # Table 2: Transaction History Tables (Mapped back to Trader Names)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS super_investor_history (
                 id SERIAL PRIMARY KEY,
@@ -51,23 +43,68 @@ def load_super_investor_data():
             );
         """)
         
-        # Wipe out old values to prevent messy duplication on rerun syncs
+        cursor.execute("TRUNCATE TABLE trader_registry RESTART IDENTITY CASCADE;")
         cursor.execute("TRUNCATE TABLE super_investor_history;")
 
-        for trade in investor_trades:
-            clean_date = datetime.datetime.strptime(trade["date"], "%Y-%m-%d").date()
+        # --- SEEDING EXPANSIVE ROSTER PROFILES ---
+        traders = [
+            ("Nancy Pelosi (Capitol)", "Political Insider", 31.4, "Policy Momentum & Deep Tech Call Options", 
+             "Representative Nancy Pelosi's family portfolio has historically drawn significant attention for perfectly timed corporate equity executions, particularly tracking semiconductor and enterprise compute frameworks right before large federal subsidy implementations."),
+            
+            ("Michael Burry (Scion)", "Activist Hedge Fund", 24.8, "Contrarian Deep Value & Structural Shorts", 
+             "Famed for predicting the 2008 subprime mortgage collapse, Dr. Michael Burry runs highly concentrated, rapid-rotation portfolio plays targeting technically beaten-down equities experiencing extreme ad-revenue or cash-flow metric compression."),
+            
+            ("Warren Buffett (Berkshire)", "Macro Legend", 19.5, "Moat-Driven Long Term Value Accumulation", 
+             "The Oracle of Omaha utilizes a foundational value architecture. He screens for businesses displaying bulletproof operational moats, highly predictable consumer pricing power, defensive margins, and generational shares-buyback programs."),
+            
+            ("Bill Ackman (Pershing Square)", "Activist Hedge Fund", 22.1, "Concentrated Operational Activism", 
+             "Ackman runs a high-conviction, single-digit line portfolio strategy. He targets scale-heavy consumer franchises, using media presence and structural boardroom interventions to optimize operational cash generation loops."),
+            
+            ("Stanley Druckenmiller (Duquesne)", "Macro Legend", 28.3, "Cross-Asset Macro Liquidity Trends", 
+             "George Soros' former chief strategist, Druckenmiller tracks global thematic macro shifts. He rotates multi-million dollar allocations rapidly into equities displaying severe underlying sector growth structural acceleration patterns."),
+            
+            ("Jensen Huang (NVIDIA CEO)", "Tech Corporate Insider", 42.6, "Executive Stock Compensation Liquidations", 
+             "As the foundational pioneer of generative compute infrastructure, Huang's public transactional filings represent automated regulatory programmatic liquidity adjustments alongside strategic confidence matrix signals."),
+            
+            ("Mark Zuckerberg (Meta CEO)", "Tech Corporate Insider", 38.2, "Open Market Strategic Reinvestments", 
+             "Zuckerberg's market execution strategies reflect direct internal forecasting insights regarding digital media spatial networks, ad-spend demand curves, and next-gen hardware infrastructure integration timelines.")
+        ]
+
+        for name, cat, ret, style, bio in traders:
+            cursor.execute("""
+                INSERT INTO trader_registry (name, category, annual_return, trading_style, biography)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (name, cat, ret, style, bio))
+
+        # --- SEEDING CORRESPONDING INSTITUTIONAL LEDGERS ---
+        trades = [
+            ("Nancy Pelosi (Capitol)", "NVDA", "Buy", "2026-03-22", 5000000, "Exercised deep tech call options."),
+            ("Nancy Pelosi (Capitol)", "AAPL", "Buy", "2026-05-18", 2500000, "Accumulated core consumer tech blocks."),
+            ("Michael Burry (Scion)", "META", "Buy", "2026-01-20", 8500000, "Deep value rotation play."),
+            ("Michael Burry (Scion)", "MSFT", "Sell", "2026-04-14", 6200000, "Exited position over cap-ex expansion fatigue."),
+            ("Warren Buffett (Berkshire)", "AAPL", "Buy", "2026-02-15", 12500000, "Increased structural anchor position."),
+            ("Warren Buffett (Berkshire)", "COST", "Buy", "2026-05-10", 4200000, "Added defensive retail margin plays."),
+            ("Bill Ackman (Pershing Square)", "COST", "Buy", "2026-03-11", 11000000, "High-conviction consumer moat play."),
+            ("Stanley Druckenmiller (Duquesne)", "NVDA", "Buy", "2026-02-28", 14500000, "Rode cross-asset AI liquidity wave."),
+            ("Stanley Druckenmiller (Duquesne)", "MSFT", "Buy", "2026-05-02", 9000000, "Positioned into cloud scaling infrastructure."),
+            ("Jensen Huang (NVIDIA CEO)", "NVDA", "Sell", "2026-05-30", 14000000, "Programmatic Rule 10b5-1 executive distribution."),
+            ("Mark Zuckerberg (Meta CEO)", "META", "Buy", "2026-06-15", 9200000, "Open market accumulation filing.")
+        ]
+
+        for investor, ticker, t_type, date_str, amt, notes in trades:
+            c_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
             cursor.execute("""
                 INSERT INTO super_investor_history (investor_name, ticker, transaction_type, transaction_date, dollar_value, research_insight)
                 VALUES (%s, %s, %s, %s, %s, %s);
-            """, (trade["investor"], trade["ticker"], trade["type"], clean_date, trade["amount"], trade["notes"]))
+            """, (investor, ticker, t_type, c_date, amt, notes))
 
         connection.commit()
-        print("Success! Super Investor tracking logs pushed up to your Neon cloud database server.")
+        print("Roster & Ledgers synced flawlessly to the Neon Cloud Repository.")
         cursor.close()
         connection.close()
 
     except Exception as error:
-        print(f"Failed to sync super investor data tables: {error}")
+        print(f"Database setup error: {error}")
 
 if __name__ == "__main__":
-    load_super_investor_data()
+    build_institutional_roster()

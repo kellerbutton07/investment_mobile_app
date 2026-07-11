@@ -129,7 +129,7 @@ with tab_scorer:
             hide_index=True,
             column_config={
                 "Master Quant Score": st.column_config.ProgressColumn(
-                    "Master Quant Score", min_value=0, max_value=100, format="%d", color="stone"
+                    "Master Quant Score", min_value=0, max_value=100, format="%d"
                 )
             },
         )
